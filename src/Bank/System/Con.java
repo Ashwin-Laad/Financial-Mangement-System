@@ -6,12 +6,12 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
 
-public class Con {
+public class Controller {
     Connection connection;
     public Statement statement;
 
     //make contructor public
-    public Con(){
+    public Controller(){
         //as trying to connect with database leads to error create try and catch
         try{
         connection= DriverManager.getConnection("jdbc:mysql://localhost:3306/Bank","root","");
