@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="assets/banner.png" alt="Financial Management System: Java Swing desktop banking app" width="100%">
+<h1>Financial Management System</h1>
 
-<br>
+<p><i>Java Swing desktop banking app with KYC onboarding, two-factor login and a transaction ledger</i></p>
 
 ![Java](https://img.shields.io/badge/Java-11%2B-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)
 ![Swing](https://img.shields.io/badge/GUI-Java%20Swing-0A66C2?style=for-the-badge)
@@ -12,7 +12,7 @@
 
 **A desktop banking simulator that walks a customer from account opening to everyday ATM transactions,<br>with a 3-step KYC sign-up, email-OTP two-factor login, and a ledger-based transaction engine.**
 
-[Features](#features) · [Screenshots](#screenshots) · [Architecture](#architecture) · [Getting Started](#getting-started) · [Database](#database-design) · [Roadmap](#roadmap)
+[Features](#features) · [User Journey](#user-journey) · [Architecture](#architecture) · [Getting Started](#getting-started) · [Database](#database-design) · [Roadmap](#roadmap)
 
 </div>
 
@@ -41,55 +41,62 @@ Every deposit and withdrawal is written to an append-only ledger, and the balanc
 | **PIN change** | Verifies the current PIN, requires the new PIN twice, then updates it across `logindetails`, `accountdetails` and `banktransactions`. |
 | **Custom Swing UI** | Hand-laid-out `JFrame` screens with themed backgrounds and an ATM-style transaction hub. |
 
-## Screenshots
-
-> Captured from the running application with a demo account.
-
-<table>
-  <tr>
-    <td width="50%"><img src="assets/screenshots/login.png" alt="Login screen"><p align="center"><b>Login</b>: card number + PIN</p></td>
-    <td width="50%"><img src="assets/screenshots/otp.png" alt="Email OTP verification"><p align="center"><b>Email OTP</b>: second factor</p></td>
-  </tr>
-</table>
-
-<table>
-  <tr>
-    <td width="33%"><img src="assets/screenshots/signup1.png" alt="Sign-up step 1"><p align="center"><b>Step 1</b>: personal details</p></td>
-    <td width="33%"><img src="assets/screenshots/signup2.png" alt="Sign-up step 2"><p align="center"><b>Step 2</b>: KYC details</p></td>
-    <td width="33%"><img src="assets/screenshots/signup3.png" alt="Sign-up step 3"><p align="center"><b>Step 3</b>: account setup</p></td>
-  </tr>
-</table>
-
-<table>
-  <tr>
-    <td colspan="2"><img src="assets/screenshots/main.png" alt="Main transaction menu"><p align="center"><b>Transaction hub</b>: ATM-style main menu</p></td>
-  </tr>
-  <tr>
-    <td width="50%"><img src="assets/screenshots/deposit.png" alt="Deposit screen"><p align="center"><b>Deposit</b></p></td>
-    <td width="50%"><img src="assets/screenshots/withdraw.png" alt="Withdrawal screen"><p align="center"><b>Cash withdrawal</b></p></td>
-  </tr>
-  <tr>
-    <td width="50%"><img src="assets/screenshots/balance.png" alt="Balance enquiry"><p align="center"><b>Balance enquiry</b></p></td>
-    <td width="50%"><img src="assets/screenshots/pin.png" alt="PIN change"><p align="center"><b>PIN change</b></p></td>
-  </tr>
-</table>
-
-<p align="center">
-  <img src="assets/screenshots/statement.png" alt="Mini statement" width="300"><br>
-  <b>Mini statement</b>: masked card number and transaction history
-</p>
-
 ## User Journey
 
-<img src="assets/user-flow.png" alt="User journey: new customers go through 3-step sign-up and first deposit; returning customers log in with card + PIN and email OTP; both reach the MainScreen hub" width="100%">
+```mermaid
+flowchart LR
+    Start([Launch app]) --> Login{"Login screen"}
+    Login -->|Sign Up| S1["Step 1: personal details"]
+    S1 --> S2["Step 2: PAN, Aadhaar, income"]
+    S2 --> S3["Step 3: account type and services"]
+    S3 --> Issue["Card number + PIN issued"]
+    Issue --> FD["First deposit"]
+    FD --> Main["MainScreen: ATM menu"]
+    Login -->|Sign In with card + PIN| OTP["Email OTP verification"]
+    OTP -->|OTP matches| Main
+    OTP -.->|wrong OTP| OTP
+    Main --> Dep["Deposit"]
+    Main --> Wd["Cash withdrawal"]
+    Main --> Bal["Balance enquiry"]
+    Main --> St["Mini statement"]
+    Main --> Pin["PIN change"]
+```
+
+- **New customers** complete the 3-step KYC wizard, receive a card number and PIN, and are taken straight to their first deposit.
+- **Returning customers** sign in with card number + PIN, then confirm a one-time password sent to their registered email.
+- **Every feature** returns to the MainScreen hub when it finishes.
 
 ## Architecture
 
-<img src="assets/architecture.png" alt="Architecture: Java Swing presentation layer, Controller JDBC data-access layer, MySQL database and SendGrid email API" width="100%">
+```mermaid
+flowchart LR
+    subgraph AUTH["Authentication"]
+        direction LR
+        Login["Login.java<br/>card number + PIN"] --> EmailLogin["EmailLogin.java<br/>6-digit email OTP"]
+    end
+    subgraph ONB["Onboarding: 3-step KYC"]
+        direction LR
+        S1["SignUp<br/>personal details"] --> S2["SignUp2<br/>PAN, Aadhaar, income"] --> S3["SignUp3<br/>account type, card + PIN"]
+    end
+    subgraph BANK["Banking: BankFeatures"]
+        direction LR
+        Main["MainScreen<br/>ATM-style hub"] --> Ops["Deposit · Withdrawl<br/>BalanceEnquiry<br/>Statement · PinChange"]
+    end
+    Ctrl["Controller.java<br/>JDBC Connection + Statement"]
+    DB[("MySQL database: Bank<br/>signup · signup2<br/>accountdetails · logindetails<br/>banktransactions")]
+    SG["SendGrid Mail API"]
+    Inbox(["Customer email inbox"])
+    AUTH -->|SQL| Ctrl
+    ONB -->|SQL| Ctrl
+    BANK -->|SQL| Ctrl
+    Ctrl -->|JDBC, port 3306| DB
+    AUTH -->|HTTPS, background thread| SG
+    SG -->|OTP email| Inbox
+```
 
 The app follows a simple **three-tier** structure:
 
-1. **Presentation (Java Swing).** Each screen is a `JFrame` that implements `ActionListener`. Screens pass the customer's `form_no` and PIN to each other in their constructors, so no global session state is needed.
+1. **Presentation (Java Swing).** Three groups of screens: authentication, onboarding and banking. Each screen is a `JFrame` that implements `ActionListener`. Screens pass the customer's `form_no` and PIN to each other in their constructors, so no global session state is needed.
 2. **Data access (`Controller.java`).** Opens a JDBC `Connection` to MySQL and exposes a `Statement` that every screen uses to run its queries.
 3. **Persistence (MySQL).** Five tables keyed by `form_no`, including an append-only `banktransactions` ledger.
 
@@ -152,7 +159,6 @@ Financial-Mangement-System/
 │   │       └── PinChange.java
 │   ├── Icon/                       # Logo and background images
 │   └── Notes/                      # Developer to-do notes
-├── assets/                         # README images & screenshots
 └── Online_Banking_System.iml       # IntelliJ module file
 ```
 
