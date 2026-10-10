@@ -1,16 +1,1 @@
-add verification
-add duplicate features for pan adh
-add proper gmail dob check format for each input
-
-here withdraw and balance enquiry have input like Rs $ so use regex to first clean the string
-using regex (.replaceall("regex","with what");
-only then use parse int
-
-
-
-//in pin change
-
-check if both the passowrd entered or not
-//apply conditon limit for a 4 digits password
-//has to be numeric
 
